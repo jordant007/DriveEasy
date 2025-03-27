@@ -1,0 +1,43 @@
+import { NextResponse } from "next/server";
+
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const ownerId = searchParams.get("ownerId");
+  const token = request.headers.get("authorization")?.replace("Bearer ", "");
+
+  if (!ownerId || !token) {
+    return NextResponse.json(
+      { message: "Missing ownerId or token" },
+      { status: 401 }
+    );
+  }
+
+  try {
+    const res = await fetch(
+      `http://localhost:5000/api/cars/owner?ownerId=${ownerId}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const data = await res.json();
+
+    if (res.ok) {
+      return NextResponse.json(data);
+    } else {
+      return NextResponse.json(
+        { message: data.message || "Failed to fetch cars" },
+        { status: res.status }
+      );
+    }
+  } catch (error) {
+    return NextResponse.json(
+      { message: "Error fetching cars", error: error.message },
+      { status: 500 }
+    );
+  }
+}
