@@ -1,30 +1,28 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import toast from "react-hot-toast"; // Import react-hot-toast
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
-import Loader from "../components/Loader";
+import Navbar from "../../../components/Navbar";
+import Footer from "../../../components/Footer";
+import Loader from "../../../components/Loader";
 
-export default function Confirmation() {
+export default function Confirmation({ params }) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const bookingId = searchParams.get("bookingId");
+  const { bookingId } = params; // Get bookingId from dynamic route params
 
   const [booking, setBooking] = useState(null);
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      toast.error("Please sign in to view your booking confirmation.");
       router.push("/signin");
       return;
     }
 
     if (!bookingId) {
-      toast.error("No booking ID provided.");
+      setError("No booking ID provided.");
       setLoading(false);
       return;
     }
@@ -42,7 +40,6 @@ export default function Confirmation() {
         if (!response.ok) {
           const errorData = await response.json();
           if (response.status === 401) {
-            toast.error("Session expired. Please sign in again.");
             router.push("/signin");
             return;
           }
@@ -51,9 +48,8 @@ export default function Confirmation() {
 
         const data = await response.json();
         setBooking(data);
-        toast.success("Booking details loaded successfully!"); // Add success toast
       } catch (err) {
-        toast.error(err.message); // Replace inline error with toast
+        setError(err.message);
         console.error("Error fetching booking:", err);
       } finally {
         setLoading(false);
@@ -71,6 +67,24 @@ export default function Confirmation() {
         <Navbar />
         <section className="p-8 flex-grow text-center">
           <Loader />
+        </section>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <section className="p-8 flex-grow text-center">
+          <p className="text-red-500">{error}</p>
+          <button
+            onClick={() => router.push("/listings")}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Back to Listings
+          </button>
         </section>
         <Footer />
       </div>

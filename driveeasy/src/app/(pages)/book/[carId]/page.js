@@ -1,35 +1,27 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter, useParams } from "next/navigation";
-import Navbar from "../../../components/Navbar";
-import Footer from "../../../components/Footer";
+import { useRouter } from "next/navigation";
+import Navbar from "../../../../components/Navbar";
+import Footer from "../../../../components/Footer";
+import Loader from "../../../../components/Loader";
 
-export default function BookCar() {
+export default function BookCar({ params }) {
+  const { carId } = params;
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { carId } = useParams();
   const [car, setCar] = useState(null);
-  const [formData, setFormData] = useState({
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [bookingData, setBookingData] = useState({
     startTime: "",
     endTime: "",
   });
-  const [totalCost, setTotalCost] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  // Redirect to sign-in if not authenticated
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push(`/signin?callbackUrl=/book/${carId}`);
-    }
-  }, [status, router, carId]);
-
-  // Fetch car details
   useEffect(() => {
     const fetchCar = async () => {
       try {
-        const response = await fetch(`/api/cars/${carId}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cars`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -37,118 +29,109 @@ export default function BookCar() {
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Failed to fetch car details");
+          throw new Error("Failed to fetch car details");
         }
 
         const data = await response.json();
-        setCar(data);
+        const selectedCar = data.find((c) => c._id === carId);
+        if (!selectedCar) {
+          throw new Error("Car not found");
+        }
+        setCar(selectedCar);
       } catch (err) {
         setError(err.message);
-        console.error("Error fetching car:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCar();
+    if (carId) {
+      fetchCar();
+    }
   }, [carId]);
 
-  // Calculate total cost based on rental duration in hours
-  useEffect(() => {
-    if (car && formData.startTime && formData.endTime) {
-      const start = new Date(formData.startTime);
-      const end = new Date(formData.endTime);
-      const hours = Math.ceil((end - start) / (1000 * 60 * 60)); // Calculate number of hours
-      if (hours > 0) {
-        const cost = hours * car.rate;
-        setTotalCost(cost);
-      } else {
-        setTotalCost(0);
-      }
-    } else {
-      setTotalCost(0);
-    }
-  }, [formData.startTime, formData.endTime, car]);
-
-  const handleChange = (e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setBookingData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleBooking = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    // Ensure the user is authenticated
-    if (status !== "authenticated") {
-      setError("Please sign in to book a car.");
+    if (status === "unauthenticated") {
+      router.push("/signin");
+      return;
+    }
+
+    if (!bookingData.startTime || !bookingData.endTime) {
+      setError("Please select both start and end times.");
       setLoading(false);
       return;
     }
 
-    // Validate that endTime is after startTime
-    const start = new Date(formData.startTime);
-    const end = new Date(formData.endTime);
-    if (end <= start) {
+    const start = new Date(bookingData.startTime);
+    const end = new Date(bookingData.endTime);
+    const now = new Date();
+
+    if (start < now) {
+      setError("Start time cannot be in the past.");
+      setLoading(false);
+      return;
+    }
+
+    if (start >= end) {
       setError("End time must be after start time.");
       setLoading(false);
       return;
     }
 
-    // Validate that totalCost is calculated
-    if (totalCost <= 0) {
-      setError("Total cost must be greater than 0. Please select a valid time range.");
-      setLoading(false);
-      return;
-    }
-
-    // Prepare the booking data
-    const bookingData = {
-      carId,
-      renterId: session.user.id,
-      startTime: formData.startTime,
-      endTime: formData.endTime,
-      totalCost,
-    };
-
-    // Log the booking data for debugging
-    console.log("Sending booking data:", bookingData);
+    const hours = (end - start) / (1000 * 60 * 60);
+    const totalCost = hours * car.rate;
 
     try {
-      const response = await fetch("/api/bookings", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bookings`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.user.token}`,
         },
-        body: JSON.stringify(bookingData),
+        body: JSON.stringify({
+          carId,
+          renterId: session.user.id,
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          totalCost,
+        }),
       });
 
-      const data = await response.json();
-      console.log("Booking response data:", data);
-
       if (!response.ok) {
-        throw new Error(data.message || "Failed to book car");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create booking");
       }
 
-      if (!data.bookingId) {
-        throw new Error("Booking ID not provided in response");
-      }
-
-      // Redirect to confirmation page with bookingId
-      router.push(`/confirmation?bookingId=${data.bookingId}`);
+      const result = await response.json();
+      // Navigate to the confirmation page using the new dynamic route
+      router.push(`/confirmation/${result.bookingId}`);
     } catch (err) {
       setError(err.message);
-      console.error("Error booking car:", err);
+      console.error("Error creating booking:", err);
     } finally {
       setLoading(false);
     }
   };
 
   if (status === "loading" || loading) {
-    return <p className="p-8 text-center">Loading...</p>;
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <section className="p-8 flex-grow text-center">
+          <Loader />
+        </section>
+        <Footer />
+      </div>
+    );
   }
 
   if (error) {
@@ -157,6 +140,12 @@ export default function BookCar() {
         <Navbar />
         <section className="p-8 flex-grow text-center">
           <p className="text-red-500">{error}</p>
+          <button
+            onClick={() => router.push("/listings")}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Back to Listings
+          </button>
         </section>
         <Footer />
       </div>
@@ -169,69 +158,79 @@ export default function BookCar() {
         <Navbar />
         <section className="p-8 flex-grow text-center">
           <p>Car not found.</p>
+          <button
+            onClick={() => router.push("/listings")}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Back to Listings
+          </button>
         </section>
         <Footer />
       </div>
     );
   }
 
-  // Set the minimum start time to the current date and time
-  const now = new Date();
-  const minStartTime = now.toISOString().slice(0, 16); // Format: YYYY-MM-DDThh:mm
-
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <section className="p-8 flex-grow">
-        <h2 className="text-3xl font-semibold text-blue-900 mb-6">Book {car.model}</h2>
-        {car.carImages && car.carImages.length > 0 && (
-          <img
-            src={`${process.env.NEXT_PUBLIC_API_URL}/${car.carImages[0]}`}
-            alt={`${car.model} Image`}
-            className="w-full max-w-md h-40 object-cover rounded mb-4"
-          />
-        )}
-        <p className="text-gray-600">Rate: ${car.rate}/hour</p>
-        <p className="text-gray-600">Location: {car.location}</p>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
-        <form onSubmit={handleSubmit} className="space-y-4 max-w-md mx-auto">
-          <div>
-            <label htmlFor="startTime" className="block text-gray-700">Start Time</label>
-            <input
-              type="datetime-local"
-              id="startTime"
-              name="startTime"
-              value={formData.startTime}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-              required
-              min={minStartTime} // Prevent selecting past dates/times
+      <section className="p-8 flex-grow max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6 text-blue-900">Book a Car</h1>
+        <div className="border rounded-lg p-6 shadow-md">
+          <h2 className="text-2xl font-semibold mb-4">{car.model} ({car.type})</h2>
+          <p className="mb-2">
+            <strong>Location:</strong> {car.location}
+          </p>
+          <p className="mb-2">
+            <strong>Rate:</strong> ${car.rate}/hour
+          </p>
+          {car.carImages && car.carImages.length > 0 ? (
+            <img
+              src={`${process.env.NEXT_PUBLIC_API_URL}/${car.carImages[0]}`}
+              alt={car.model}
+              className="w-full h-48 object-cover rounded-lg mb-4"
             />
-          </div>
-          <div>
-            <label htmlFor="endTime" className="block text-gray-700">End Time</label>
-            <input
-              type="datetime-local"
-              id="endTime"
-              name="endTime"
-              value={formData.endTime}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-              required
-              min={formData.startTime || minStartTime} // Prevent end time before start time
-            />
-          </div>
-          {totalCost > 0 && (
-            <p className="text-gray-700">Total Cost: ${totalCost.toFixed(2)}</p>
+          ) : (
+            <div className="w-full h-48 bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
+              <span className="text-gray-500">No Image Available</span>
+            </div>
           )}
-          <button
-            type="submit"
-            className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            disabled={loading}
-          >
-            {loading ? "Booking..." : "Book Car"}
-          </button>
-        </form>
+          <form onSubmit={handleBooking} className="space-y-4">
+            <div>
+              <label htmlFor="startTime" className="block text-gray-700">Start Time</label>
+              <input
+                type="datetime-local"
+                id="startTime"
+                name="startTime"
+                value={bookingData.startTime}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                required
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label htmlFor="endTime" className="block text-gray-700">End Time</label>
+              <input
+                type="datetime-local"
+                id="endTime"
+                name="endTime"
+                value={bookingData.endTime}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                required
+                disabled={loading}
+              />
+            </div>
+            {error && <p className="text-red-500">{error}</p>}
+            <button
+              type="submit"
+              className="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              disabled={loading}
+            >
+              {loading ? "Booking..." : "Confirm Booking"}
+            </button>
+          </form>
+        </div>
       </section>
       <Footer />
     </div>

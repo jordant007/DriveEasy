@@ -3,14 +3,15 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import useCurrency from "../hooks/useCurrency";
-import Loader from "./Loader"; // Import the Loader component
+import Loader from "./Loader";
+import Image from "next/image";
 
 export default function Hero() {
   const currency = useCurrency();
   const router = useRouter();
   const [topPicks, setTopPicks] = useState([]);
-  const [loading, setLoading] = useState(true); // For fetching top picks
-  const [getStartedLoading, setGetStartedLoading] = useState(false); // For "Get Started" button
+  const [loading, setLoading] = useState(true);
+  const [getStartedLoading, setGetStartedLoading] = useState(false);
   const [error, setError] = useState(null);
   const [imageErrors, setImageErrors] = useState({});
 
@@ -49,21 +50,16 @@ export default function Hero() {
       return;
     }
 
-    const query = new URLSearchParams({
-      location: searchData.location,
-      pickupTime: searchData.pickupTime,
-      returnTime: searchData.returnTime,
-    }).toString();
-    const url = `/listings?${query}`;
+    // Use dynamic route instead of query parameters
+    const url = `/listings/${encodeURIComponent(searchData.location)}/${encodeURIComponent(searchData.pickupTime)}/${encodeURIComponent(searchData.returnTime)}`;
     router.push(url);
   };
 
   const handleGetStarted = () => {
-    setGetStartedLoading(true); // Show loader
-    // Simulate a delay for the loader to be visible (optional)
+    setGetStartedLoading(true);
     setTimeout(() => {
-      router.push("/signup"); // Navigate to signup page
-    }, 500); // Adjust delay as needed (e.g., 500ms)
+      router.push("/signup");
+    }, 500);
   };
 
   useEffect(() => {
@@ -111,7 +107,7 @@ export default function Hero() {
             Grab a car for as low as 6 {currency}/hour—your ride, your way.
           </p>
           {getStartedLoading ? (
-            <Loader size={30} color="#ffffff" /> // Show loader during navigation
+            <Loader size={30} color="#ffffff" />
           ) : (
             <button
               onClick={handleGetStarted}
@@ -171,7 +167,7 @@ export default function Hero() {
       <section className="p-8 bg-white">
         <h2 className="text-3xl font-semibold text-blue-900 mb-6 text-center">Top Picks</h2>
         {loading ? (
-          <Loader /> // Replace "Loading top picks..." with Loader component
+          <Loader />
         ) : error ? (
           <p className="text-center text-red-500">{error}</p>
         ) : topPicks.length === 0 ? (
@@ -184,9 +180,11 @@ export default function Hero() {
                 className="border rounded-lg p-4 shadow-md bg-white hover:shadow-lg transition-shadow duration-300"
               >
                 {car.carImages && car.carImages.length > 0 && !imageErrors[car._id] ? (
-                  <img
+                  <Image
                     src={`${process.env.NEXT_PUBLIC_API_URL}/${car.carImages[0]}`}
                     alt={`${car.model} Image`}
+                    width={400}
+                    height={192}
                     className="w-full h-48 object-cover rounded-lg mb-4"
                     onError={() => {
                       setImageErrors((prev) => ({ ...prev, [car._id]: true }));

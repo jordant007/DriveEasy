@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import toast from "react-hot-toast"; // Import react-hot-toast
+import toast from "react-hot-toast";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import Loader from "../components/Loader";
@@ -134,10 +134,10 @@ export default function ListCar() {
       }
 
       const result = await response.json();
-      toast.success("Car listed successfully!"); // Replace alert with toast
+      toast.success("Car listed successfully!");
       router.push("/owner-dashboard");
     } catch (err) {
-      toast.error(err.message); // Replace inline error with toast
+      toast.error(err.message);
       console.error("Error listing car:", err);
     } finally {
       setLoading(false);
@@ -378,7 +378,7 @@ export default function ListCar() {
               )}
             </div>
             <div>
-              <label htmlFor="nationalId" className="block text-gray-700">National ID</label>
+              <label htmlFor="nationalId" class className="block text-gray-700">National ID</label>
               <input
                 type="file"
                 id="nationalId"

@@ -1,17 +1,19 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation"; // Add useRouter for navigation
+import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import Link from "next/link";
+import Image from "next/image"; // Import Image
 
 export default function Listings() {
   const { data: session, status } = useSession();
-  const router = useRouter(); // Initialize router for navigation
+  const router = useRouter();
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [imageErrorMap, setImageErrorMap] = useState({}); // Track image loading errors
 
   useEffect(() => {
     const fetchCars = async () => {
@@ -34,7 +36,7 @@ export default function Listings() {
         }
 
         const data = await response.json();
-        setCars(data); // The backend already filters for available cars
+        setCars(data);
       } catch (err) {
         setError(err.message);
         console.error("Error fetching cars:", err);
@@ -109,12 +111,22 @@ export default function Listings() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {cars.map((car) => (
               <div key={car._id} className="border rounded-lg p-4 shadow-md">
-                {car.carImages && car.carImages.length > 0 && (
-                  <img
+                {car.carImages && car.carImages.length > 0 && !imageErrorMap[car._id] ? (
+                  <Image
                     src={`${process.env.NEXT_PUBLIC_API_URL}/${car.carImages[0]}`}
                     alt={`${car.model} Image`}
+                    width={400} // Adjust based on your design
+                    height={160} // Matches h-40 (10rem or 160px)
                     className="w-full h-40 object-cover rounded mb-4"
+                    onError={() => {
+                      setImageErrorMap((prev) => ({ ...prev, [car._id]: true }));
+                      console.error(`Failed to load image for ${car.model}: ${car.carImages[0]}`);
+                    }}
                   />
+                ) : (
+                  <div className="w-full h-40 bg-gray-200 rounded mb-4 flex items-center justify-center">
+                    <span className="text-gray-500">No Image Available</span>
+                  </div>
                 )}
                 <h3 className="text-xl font-semibold">{car.model}</h3>
                 <p className="text-gray-600">Type: {car.type}</p>

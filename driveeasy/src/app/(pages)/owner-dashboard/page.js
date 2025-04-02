@@ -6,6 +6,7 @@ import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import Link from "next/link";
 import Loader from "../../components/Loader";
+import Image from "next/image"; // Import Image
 
 export default function OwnerDashboard() {
   const { data: session, status } = useSession();
@@ -125,9 +126,11 @@ export default function OwnerDashboard() {
             {cars.map((car) => (
               <div key={car._id || Math.random()} className="border rounded-lg p-4 shadow-md">
                 {car.carImages && car.carImages.length > 0 && !imageErrorMap[car._id] ? (
-                  <img
+                  <Image
                     src={`${process.env.NEXT_PUBLIC_API_URL}/${car.carImages[0]}`}
                     alt={car.model}
+                    width={400}
+                    height={160} // Matches h-40 (10rem or 160px)
                     className="w-full h-40 object-cover rounded-lg mb-4"
                     onError={() => {
                       setImageErrorMap((prev) => ({ ...prev, [car._id]: true }));
