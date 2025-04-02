@@ -2,9 +2,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Navbar from "../../../components/Navbar";
-import Footer from "../../../components/Footer";
-import Loader from "../../../components/Loader";
+import Navbar from "../../components/Navbar";
+import Footer from "../../components/Footer";
+import Loader from "../../components/Loader";
 
 export default function Confirmation({ params }) {
   const { data: session, status } = useSession();
