@@ -27,7 +27,7 @@ const nextConfig = {
     ];
   },
   images: {
-    domains: ["localhost"], // Allow localhost for development
+    domains: ["localhost","https://drive-easy-5hz8.vercel.app/"], // Allow localhost for development
   },
 };
 
