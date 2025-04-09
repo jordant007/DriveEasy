@@ -26,6 +26,9 @@ const nextConfig = {
       },
     ];
   },
+  images: {
+    domains: ["localhost"], // Allow localhost for development
+  },
 };
 
 export default nextConfig;
