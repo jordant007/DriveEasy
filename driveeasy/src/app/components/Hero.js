@@ -23,7 +23,11 @@ export default function Hero() {
 
   const handleSearchInputChange = (e) => {
     const { name, value } = e.target;
-    setSearchData((prev) => ({ ...prev, [name]: value }));
+    setSearchData((prev) => {
+      const newData = { ...prev, [name]: value };
+      console.log("Updated searchData:", newData);
+      return newData;
+    });
   };
 
   const handleFindRide = () => {
@@ -31,32 +35,53 @@ export default function Hero() {
       alert("Please fill in all fields.");
       return;
     }
+
     const pickup = new Date(searchData.pickupTime);
     const returnDate = new Date(searchData.returnTime);
     const now = new Date();
-    if (pickup < now || pickup >= returnDate) {
-      alert("Invalid pickup or return time.");
+
+    if (pickup < now) {
+      alert("Pickup time cannot be in the past.");
       return;
     }
+
+    if (pickup >= returnDate) {
+      alert("Pickup time must be before return time.");
+      return;
+    }
+
+    // Use dynamic route instead of query parameters
     const url = `/listings/${encodeURIComponent(searchData.location)}/${encodeURIComponent(searchData.pickupTime)}/${encodeURIComponent(searchData.returnTime)}`;
     router.push(url);
   };
 
   const handleGetStarted = () => {
     setGetStartedLoading(true);
-    setTimeout(() => router.push("/signup"), 500);
+    setTimeout(() => {
+      router.push("/signup");
+    }, 500);
   };
 
   useEffect(() => {
     const fetchTopPicks = async () => {
       try {
-        const response = await fetch("/api/cars", { // Use relative path with rewrite
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cars`, {
           method: "GET",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
         });
+
         if (!response.ok) {
-          throw new Error(`Failed to fetch top picks: ${response.status}`);
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Failed to fetch top picks (status: ${response.status})`);
+          } else {
+            throw new Error(`Failed to fetch top picks (status: ${response.status})`);
+          }
         }
+
         const data = await response.json();
         setTopPicks(data.slice(0, 3));
       } catch (err) {
@@ -66,11 +91,13 @@ export default function Hero() {
         setLoading(false);
       }
     };
+
     fetchTopPicks();
   }, []);
 
   return (
     <>
+      {/* Hero Section */}
       <section className="relative min-h-[80vh] flex items-center justify-center p-8 bg-gradient-to-b from-blue-900 to-black">
         <div className="text-center text-white z-10 max-w-4xl mx-auto">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -85,10 +112,12 @@ export default function Hero() {
             <button
               onClick={handleGetStarted}
               className="bg-yellow-400 text-blue-900 px-8 py-3 rounded-xl font-semibold hover:bg-yellow-500"
+              disabled={getStartedLoading}
             >
               Get Started
             </button>
           )}
+
           <div className="mt-6 max-w-2xl mx-auto bg-blue-900/30 p-6 rounded-xl backdrop-blur-sm">
             <h3 className="text-lg font-semibold mb-4">Find Your Perfect Ride</h3>
             <div className="flex flex-col md:flex-row gap-4">
@@ -134,6 +163,7 @@ export default function Hero() {
         </div>
       </section>
 
+      {/* Top Picks Section */}
       <section className="p-8 bg-white">
         <h2 className="text-3xl font-semibold text-blue-900 mb-6 text-center">Top Picks</h2>
         {loading ? (
@@ -151,12 +181,15 @@ export default function Hero() {
               >
                 {car.carImages && car.carImages.length > 0 && !imageErrors[car._id] ? (
                   <Image
-                    src={`/uploads/${car.carImages[0]}`} // Proxied via rewrite
+                    src={`${process.env.NEXT_PUBLIC_API_URL}/${car.carImages[0]}`}
                     alt={`${car.model} Image`}
                     width={400}
                     height={192}
                     className="w-full h-48 object-cover rounded-lg mb-4"
-                    onError={() => setImageErrors((prev) => ({ ...prev, [car._id]: true }))}
+                    onError={() => {
+                      setImageErrors((prev) => ({ ...prev, [car._id]: true }));
+                      console.error(`Failed to load image for ${car.model}: ${car.carImages[0]}`);
+                    }}
                   />
                 ) : (
                   <div className="w-full h-48 bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
