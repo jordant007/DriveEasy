@@ -15,19 +15,24 @@ const nextConfig = {
     return config;
   },
   async rewrites() {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
     return [
       {
         source: "/api/cars/:path*",
-        destination: "http://localhost:5000/api/cars/:path*", // Proxy to backend
+        destination: `${backendUrl}/api/cars/:path*`,
       },
       {
         source: "/api/bookings/:path*",
-        destination: "http://localhost:5000/api/bookings/:path*", // Proxy to backend
+        destination: `${backendUrl}/api/bookings/:path*`,
+      },
+      {
+        source: "/uploads/:path*",
+        destination: `${backendUrl}/uploads/:path*`,
       },
     ];
   },
   images: {
-    domains: ["localhost","https://drive-easy-5hz8.vercel.app/"], // Allow localhost for development
+    domains: ["localhost", "https://drive-easy-5hz8.vercel.app/"], // Add your backend domain
   },
 };
 
